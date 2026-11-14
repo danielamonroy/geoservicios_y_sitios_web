@@ -1,3 +1,9 @@
+// =====================================================
+// Capítulo 11 - Aplicación Web con Leaflet
+// Geovisor: Colombia - Departamentos y Municipios
+// =====================================================
+
+// Crear el mapa centrado en Colombia (11.3)
 const map = L.map('map').setView([4.5709, -74.2973], 6);
 
 // -----------------------------------------------------
@@ -73,26 +79,37 @@ const departamentosWFSUrl = geoserverWFS +
 
 let departamentosGeoJSON; // Capa GeoJSON (se usa también en la búsqueda)
 
+// Dibuja los departamentos como GeoJSON interactivo
+function mostrarDepartamentos(data, nombreCapa) {
+    departamentosGeoJSON = L.geoJSON(data, {
+        style: {
+            color: '#232323',
+            weight: 2,
+            fillColor: '#e8f881',
+            fillOpacity: 0.5
+        },
+        onEachFeature: onEachFeature
+    });
+    departamentosGeoJSON.addTo(map);
+    controlLayer.addOverlay(departamentosGeoJSON, nombreCapa);
+    map.fitBounds(departamentosGeoJSON.getBounds());
+}
+
+// Intenta el WFS de GeoServer; si no esta disponible (p. ej. en GitHub Pages),
+// usa el GeoJSON local del repositorio
 fetch(departamentosWFSUrl)
-    .then(response => response.json())
-    .then(data => {
-        departamentosGeoJSON = L.geoJSON(data, {
-            style: {
-                color: '#232323',
-                weight: 2,
-                fillColor: '#e8f881',
-                fillOpacity: 0.5
-            },
-            onEachFeature: onEachFeature
-        });
-
-        departamentosGeoJSON.addTo(map);
-        controlLayer.addOverlay(departamentosGeoJSON, "Departamentos (WFS GeoServer)");
-
-        // Ajustar vista al extent de los datos
-        map.fitBounds(departamentosGeoJSON.getBounds());
+    .then(response => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
     })
-    .catch(error => console.error('Error cargando WFS:', error));
+    .then(data => mostrarDepartamentos(data, "Departamentos (WFS GeoServer)"))
+    .catch(error => {
+        console.warn('WFS de GeoServer no disponible, usando GeoJSON local:', error);
+        fetch('datos/departamentos.geojson')
+            .then(response => response.json())
+            .then(data => mostrarDepartamentos(data, "Departamentos (GeoJSON)"))
+            .catch(err => console.error('Error cargando GeoJSON local:', err));
+    });
 
 // -----------------------------------------------------
 // Interactividad: popups, highlight y zoom (11.5)
@@ -183,7 +200,8 @@ legend.onAdd = function (map) {
         '&format=image/png&layer=taller:departamentos';
     div.innerHTML = `
         <h4>Leyenda</h4>
-        <b>Departamentos</b><br><img src="${legendUrl}" alt="Leyenda departamentos"><br>
+        <b>Departamentos</b><br>
+        <img src="${legendUrl}" alt="Leyenda departamentos" onerror="this.outerHTML='<i style=&quot;background:#e8f881;border:1px solid #232323&quot;></i> Departamentos'"><br>
         <img src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"
              style="height: 18px; margin-right: 8px;"> Capital
     `;
